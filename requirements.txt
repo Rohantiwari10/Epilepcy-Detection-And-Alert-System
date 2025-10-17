@@ -7,3 +7,5 @@ matplotlib
 scikit-plot
 hurst
 PyWavelets
+streamlit
+joblib
