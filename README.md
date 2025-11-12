@@ -191,7 +191,7 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ## 📬 Contact
 
 👤 **Rohan Tiwari**  
-📧 your-email@example.com  
+📧 rohanitsector@gmail.com  
 🔗 [Project Repository](https://github.com/Rohantiwari10/Epilepcy-Detection-And-Alert-System)  
 
 ⭐ If you like this project, **give it a star** on GitHub to support the development!
