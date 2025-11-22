@@ -1,4 +1,4 @@
-# app.py — Epilepsy Monitoring & Alert System
+# app.py — Epilepsy Monitoring & Alert System (TELEGRAM ENABLED)
 
 import streamlit as st
 import pandas as pd
@@ -10,25 +10,20 @@ import base64
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
+import requests  # Required for Telegram
+from dotenv import load_dotenv
 
-# Optional imports (email/SMS)
-try:
-    import smtplib
-    from email.mime.text import MIMEText
-except:
-    smtplib = None
+# Load .env variables
+load_dotenv()
 
-try:
-    from twilio.rest import Client as TwilioClient
-except:
-    TwilioClient = None
-
+# TELEGRAM CONFIGURATION
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # ------------------------------------------------
 # Streamlit Page Config
 # ------------------------------------------------
 st.set_page_config(page_title="Epileptic Seizure Detection", page_icon="🧠", layout="wide")
-
 
 # ------------------------------------------------
 # UI Theme
@@ -46,17 +41,14 @@ def medical_ui_theme():
         </style>
     """, unsafe_allow_html=True)
 
-
 medical_ui_theme()
 st.markdown("<div class='title'>🧠 Epileptic Seizure Detection System</div>", unsafe_allow_html=True)
-
 
 # ------------------------------------------------
 # FEATURE EXTRACTION
 # ------------------------------------------------
 def getHurst(df_eeg):
     return [compute_Hc(df_eeg.iloc[i], kind="change", simplified=True)[0] for i in range(len(df_eeg))]
-
 
 def statisticsForWavelet(coefs):
     n5, n25, n75, n95 = np.nanpercentile(coefs, [5, 25, 75, 95])
@@ -66,7 +58,6 @@ def statisticsForWavelet(coefs):
     var = np.nanvar(coefs)
     rms = np.nanmean(np.sqrt(coefs ** 2))
     return [n5, n25, n75, n95, median, mean, std, var, rms]
-
 
 def getWaveletFeatures(df_eeg, hurst_values):
     features = []
@@ -78,13 +69,12 @@ def getWaveletFeatures(df_eeg, hurst_values):
         features.append(feat_row)
     return pd.DataFrame(features)
 
-
 # ------------------------------------------------
-# ALERT: SOUND
+# SOUND ALERT
 # ------------------------------------------------
 def play_alarm_sound():
     if not os.path.exists("alert.wav"):
-        st.warning("⚠️ alert.wav missing! Place an alert sound in project folder.")
+        st.warning("⚠️ alert.wav missing! Place an alert sound file in the folder.")
         return
     try:
         data = open("alert.wav", "rb").read()
@@ -96,68 +86,59 @@ def play_alarm_sound():
     except Exception as e:
         st.error(f"Alarm error: {e}")
 
-
 # ------------------------------------------------
-# ALERT: EMAIL
+# TELEGRAM ALERT FUNCTION
 # ------------------------------------------------
-def send_email(sender, password, receiver, message):
-    if smtplib is None:
-        st.error("SMTP not supported environment.")
-        return False
-    try:
-        msg = MIMEText(message)
-        msg["From"] = sender
-        msg["To"] = receiver
-        msg["Subject"] = "🚨 Seizure Alert"
+def send_telegram_alert(message):
+    """
+    Sends notification via Telegram Bot (Free & Fast)
+    """
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        st.error("⚠️ Telegram keys missing in .env file!")
+        return
 
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender, password)
-        server.sendmail(sender, receiver, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Email error: {e}")
-        return False
-
-
-# ------------------------------------------------
-# ALERT: SMS
-# ------------------------------------------------
-def send_sms(tw_sid, tw_token, sender_no, receiver_no, msg):
-    if TwilioClient is None:
-        st.error("Twilio not installed.")
-        return False
+    # 'parse_mode': 'HTML' allows us to use <b>bold</b> text
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML" 
+    }
 
     try:
-        client = TwilioClient(tw_sid, tw_token)
-        client.messages.create(body=msg, from_=sender_no, to=receiver_no)
-        return True
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            st.success("📲 Telegram Alert Sent Successfully!")
+        else:
+            st.error(f"Telegram Error: {response.text}")
     except Exception as e:
-        st.error(f"SMS error: {e}")
-        return False
-
+        st.error(f"Connection Failed: {e}")
 
 # ------------------------------------------------
 # MASTER ALERT FUNCTION
 # ------------------------------------------------
-def trigger_alert():
+def trigger_alert(row_index=None):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    alert_message = f"⚠️ Seizure detected at {timestamp}"
+    
+    # Construct the message with HTML formatting
+    alert_message = f"🚨 <b>SEIZURE DETECTED</b>\n"
+    alert_message += f"🕒 Time: {timestamp}\n"
+    
+    if row_index is not None:
+        # Add +1 so "Row 0" becomes "Row 1" (Human readable)
+        alert_message += f"📊 Data Source: <b>Row {row_index + 1}</b>"
+    else:
+        alert_message += "📊 Data Source: <b>Manual Input</b>"
+
+    alert_message += "\n\n❗ <b>Patient requires immediate attention.</b>"
 
     # Alarm
     if enable_sound:
         play_alarm_sound()
 
-    # Email
-    if enable_email and email_sender and email_password and email_receiver:
-        if send_email(email_sender, email_password, email_receiver, alert_message):
-            st.success("📧 Email alert sent")
-
-    # SMS
-    if enable_sms and tw_sid and tw_token and tw_from and tw_to:
-        if send_sms(tw_sid, tw_token, tw_from, tw_to, alert_message):
-            st.success("📱 SMS alert sent")
-
+    # Telegram Alert
+    if enable_mobile_alert:
+        send_telegram_alert(alert_message)
 
 # ------------------------------------------------
 # LOAD MODEL + SCALER
@@ -166,9 +147,8 @@ try:
     model = joblib.load("rf_model.joblib")
     scaler = joblib.load("scaler.joblib")
 except:
-    st.error("Model or scaler file missing!")
+    st.error("Model or scaler file missing! Ensure rf_model.joblib and scaler.joblib are in the folder.")
     st.stop()
-
 
 # ------------------------------------------------
 # SIDEBAR SETTINGS
@@ -176,32 +156,23 @@ except:
 with st.sidebar:
     st.markdown("## ⚙️ Alert Controls")
 
-    enable_sound = st.checkbox("Play Alarm", True)
-    enable_email = st.checkbox("Send Email Alert", False)
-    enable_sms = st.checkbox("Send SMS Alert", False)
+    enable_sound = st.checkbox("Play Sound Alarm", True)
+    enable_mobile_alert = st.checkbox("Send Telegram Alert", True)
 
-    st.markdown("---")
-
-    if enable_email:
-        email_sender = st.text_input("Sender Email")
-        email_password = st.text_input("Email App Password", type="password")
-        email_receiver = st.text_input("Receiver Email")
+    if enable_mobile_alert:
+        st.info(f"Alerts enabled for Chat ID: {TELEGRAM_CHAT_ID}")
+        
+    st.divider()
+    st.markdown("### Status")
+    if TELEGRAM_TOKEN:
+        st.success("Telegram Bot: Connected")
     else:
-        email_sender = email_password = email_receiver = None
-
-    if enable_sms:
-        tw_sid = st.text_input("Twilio SID")
-        tw_token = st.text_input("Twilio Token", type="password")
-        tw_from = st.text_input("Twilio Number (+1...)")
-        tw_to = st.text_input("Receiver Number (+91...)")
-    else:
-        tw_sid = tw_token = tw_from = tw_to = None
-
+        st.error("Telegram Bot: Not Configured")
 
 # ------------------------------------------------
 # PREDICTION FUNCTION
 # ------------------------------------------------
-def make_prediction(df, raw=None):
+def make_prediction(df, raw=None, row_index=None):
 
     hurst = getHurst(df)
     feats = getWaveletFeatures(df, hurst)
@@ -217,7 +188,8 @@ def make_prediction(df, raw=None):
         st.error("🚨 Epileptic Seizure Detected")
         st.markdown("<div class='alert-box'> SEIZURE DETECTED — ATTENTION REQUIRED </div>", unsafe_allow_html=True)
 
-        trigger_alert()   # 🔥 Master Alert
+        # Pass row_index to the alert system
+        trigger_alert(row_index)
 
     else:
         st.success("🟢 Normal Brain Activity")
@@ -235,17 +207,15 @@ def make_prediction(df, raw=None):
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 # ------------------------------------------------
 # MAIN UI
 # ------------------------------------------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.write("Upload EEG CSV or enter values manually to detect seizures.")
+st.write("Upload EEG CSV or select row to detect seizures.")
 st.markdown("</div>", unsafe_allow_html=True)
 
 input_choice = st.sidebar.radio("Input Method:", ["Upload CSV", "Manual Input"])
 
-# CSV INPUT
 # CSV INPUT
 if input_choice == "Upload CSV":
     file = st.sidebar.file_uploader("Upload CSV (X1..X178 required)")
@@ -256,9 +226,6 @@ if input_choice == "Upload CSV":
         st.write("### Data Preview:")
         st.dataframe(df.head())
 
-        # --------------------------------------------
-        # 🔥 Slider to choose row index
-        # --------------------------------------------
         row_index = st.sidebar.slider(
             "Select Row for Prediction",
             min_value=0,
@@ -268,24 +235,20 @@ if input_choice == "Upload CSV":
         )
 
         st.sidebar.write(f"Selected Row: **{row_index}**")
-
-        # Show selected row data
         st.write("### Selected EEG Row")
         st.dataframe(df.iloc[[row_index]])
 
-        # --------------------------------------------
-        # 🔥 Predict button
-        # --------------------------------------------
         if st.sidebar.button("Predict Selected Row"):
             eeg = df.select_dtypes(include=np.number).iloc[[row_index]]
             raw = eeg.values.flatten().tolist()
-            make_prediction(eeg, raw)
-
+            # Pass row_index so the Telegram message says "Row X"
+            make_prediction(eeg, raw, row_index=row_index)
 
 # MANUAL INPUT
 else:
-    example = "386,382,356,...(178 values)"
-    txt = st.text_area("Enter 178 comma-separated values:", value=example, height=150)
+    # Example data for quick testing
+    example = "386,382,356" 
+    txt = st.text_area("Enter 178 comma-separated values:", height=150)
 
     if st.button("Predict Manually"):
         try:
@@ -294,11 +257,9 @@ else:
                 st.error(f"Expected 178 values, got {len(vals)}.")
             else:
                 df = pd.DataFrame([vals], columns=[f"X{i}" for i in range(1, 179)])
-                make_prediction(df, vals)
+                # No row index for manual input
+                make_prediction(df, vals, row_index=None)
         except:
             st.error("Invalid input")
-
-
-# FOOTER
 
 st.markdown("<div style='text-align:center; color:gray;'>Made with ❤️ — Epilepsy Detection System</div>", unsafe_allow_html=True)

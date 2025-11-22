@@ -10,3 +10,4 @@ PyWavelets
 streamlit
 joblib
 twilio
+requests
