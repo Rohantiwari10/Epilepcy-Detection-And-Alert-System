@@ -1,4 +1,4 @@
-# app.py — Epilepsy Monitoring & Alert System (TELEGRAM ENABLED)
+# app.py — Epilepsy Monitoring & Alert System (TELEGRAM + EMAIL)
 
 import streamlit as st
 import pandas as pd
@@ -10,7 +10,9 @@ import base64
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
-import requests  # Required for Telegram
+import requests  # For Telegram
+import smtplib   # For Email
+from email.mime.text import MIMEText # For Email body
 from dotenv import load_dotenv
 
 # Load .env variables
@@ -19,6 +21,11 @@ load_dotenv()
 # TELEGRAM CONFIGURATION
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+# EMAIL CONFIGURATION
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
 
 # ------------------------------------------------
 # Streamlit Page Config
@@ -90,14 +97,10 @@ def play_alarm_sound():
 # TELEGRAM ALERT FUNCTION
 # ------------------------------------------------
 def send_telegram_alert(message):
-    """
-    Sends notification via Telegram Bot (Free & Fast)
-    """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         st.error("⚠️ Telegram keys missing in .env file!")
         return
 
-    # 'parse_mode': 'HTML' allows us to use <b>bold</b> text
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -108,11 +111,33 @@ def send_telegram_alert(message):
     try:
         response = requests.post(url, json=payload)
         if response.status_code == 200:
-            st.success("📲 Telegram Alert Sent Successfully!")
+            st.success("📲 Telegram Alert Sent!")
         else:
             st.error(f"Telegram Error: {response.text}")
     except Exception as e:
-        st.error(f"Connection Failed: {e}")
+        st.error(f"Telegram Connection Failed: {e}")
+
+# ------------------------------------------------
+# EMAIL ALERT FUNCTION (NEW)
+# ------------------------------------------------
+def send_email_alert(subject, body):
+    if not EMAIL_SENDER or not EMAIL_PASSWORD or not EMAIL_RECEIVER:
+        st.error("⚠️ Email keys missing in .env file!")
+        return
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_SENDER
+    msg["To"] = EMAIL_RECEIVER
+
+    try:
+        # Connect to Gmail Server
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
+        st.success("📧 Email Alert Sent!")
+    except Exception as e:
+        st.error(f"Email Sending Failed: {e}")
 
 # ------------------------------------------------
 # MASTER ALERT FUNCTION
@@ -120,25 +145,38 @@ def send_telegram_alert(message):
 def trigger_alert(row_index=None):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Construct the message with HTML formatting
-    alert_message = f"🚨 <b>SEIZURE DETECTED</b>\n"
-    alert_message += f"🕒 Time: {timestamp}\n"
+    # 1. Prepare Telegram Message (HTML format)
+    telegram_msg = f"🚨 <b>SEIZURE DETECTED</b>\n"
+    telegram_msg += f"🕒 Time: {timestamp}\n"
     
     if row_index is not None:
-        # Add +1 so "Row 0" becomes "Row 1" (Human readable)
-        alert_message += f"📊 Data Source: <b>Row {row_index + 1}</b>"
+        telegram_msg += f"📊 Data Source: <b>Row {row_index + 1}</b>"
     else:
-        alert_message += "📊 Data Source: <b>Manual Input</b>"
+        telegram_msg += "📊 Data Source: <b>Manual Input</b>"
+    telegram_msg += "\n\n❗ <b>Patient requires immediate attention.</b>"
 
-    alert_message += "\n\n❗ <b>Patient requires immediate attention.</b>"
+    # 2. Prepare Email Message (Plain text)
+    email_subject = "🚨 URGENT: Seizure Detected"
+    email_body = f"""
+    URGENT MEDICAL ALERT
+    --------------------
+    A Seizure event has been detected by the monitoring system.
+    
+    Time: {timestamp}
+    Source Row: {row_index + 1 if row_index is not None else 'Manual Input'}
+    
+    Please check on the patient immediately.
+    """
 
-    # Alarm
+    # 3. Trigger Selected Alerts
     if enable_sound:
         play_alarm_sound()
 
-    # Telegram Alert
     if enable_mobile_alert:
-        send_telegram_alert(alert_message)
+        send_telegram_alert(telegram_msg)
+
+    if enable_email_alert:
+        send_email_alert(email_subject, email_body)
 
 # ------------------------------------------------
 # LOAD MODEL + SCALER
@@ -147,7 +185,7 @@ try:
     model = joblib.load("rf_model.joblib")
     scaler = joblib.load("scaler.joblib")
 except:
-    st.error("Model or scaler file missing! Ensure rf_model.joblib and scaler.joblib are in the folder.")
+    st.error("Model files missing! Ensure rf_model.joblib and scaler.joblib are present.")
     st.stop()
 
 # ------------------------------------------------
@@ -158,16 +196,20 @@ with st.sidebar:
 
     enable_sound = st.checkbox("Play Sound Alarm", True)
     enable_mobile_alert = st.checkbox("Send Telegram Alert", True)
+    enable_email_alert = st.checkbox("Send Email Alert", False) # Default off to avoid spam
 
-    if enable_mobile_alert:
-        st.info(f"Alerts enabled for Chat ID: {TELEGRAM_CHAT_ID}")
-        
     st.divider()
     st.markdown("### Status")
+    
     if TELEGRAM_TOKEN:
-        st.success("Telegram Bot: Connected")
+        st.success("Telegram: Configured")
     else:
-        st.error("Telegram Bot: Not Configured")
+        st.error("Telegram: Missing")
+        
+    if EMAIL_SENDER:
+        st.success("Email: Configured")
+    else:
+        st.warning("Email: Missing")
 
 # ------------------------------------------------
 # PREDICTION FUNCTION
@@ -188,7 +230,6 @@ def make_prediction(df, raw=None, row_index=None):
         st.error("🚨 Epileptic Seizure Detected")
         st.markdown("<div class='alert-box'> SEIZURE DETECTED — ATTENTION REQUIRED </div>", unsafe_allow_html=True)
 
-        # Pass row_index to the alert system
         trigger_alert(row_index)
 
     else:
@@ -241,12 +282,10 @@ if input_choice == "Upload CSV":
         if st.sidebar.button("Predict Selected Row"):
             eeg = df.select_dtypes(include=np.number).iloc[[row_index]]
             raw = eeg.values.flatten().tolist()
-            # Pass row_index so the Telegram message says "Row X"
             make_prediction(eeg, raw, row_index=row_index)
 
 # MANUAL INPUT
 else:
-    # Example data for quick testing
     example = "386,382,356" 
     txt = st.text_area("Enter 178 comma-separated values:", height=150)
 
@@ -257,7 +296,6 @@ else:
                 st.error(f"Expected 178 values, got {len(vals)}.")
             else:
                 df = pd.DataFrame([vals], columns=[f"X{i}" for i in range(1, 179)])
-                # No row index for manual input
                 make_prediction(df, vals, row_index=None)
         except:
             st.error("Invalid input")
