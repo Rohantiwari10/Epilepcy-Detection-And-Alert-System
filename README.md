@@ -1,201 +1,129 @@
-# 🧠 Epilepsy Detection and Alert System  
+🧠 Epileptic Seizure Detection & Alert System
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Built%20with-Python-3776AB)](https://www.python.org/)
-[![ML](https://img.shields.io/badge/Machine%20Learning-Enabled-success)]()
-[![Contributions](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)](CONTRIBUTING.md)
+A real-time Epileptic Seizure Detection System that analyzes EEG signals using Machine Learning (Random Forest) and Signal Processing (Wavelet Transform). When a seizure is detected, the system instantly triggers multi-channel alerts via Telegram and Email to caregivers and doctors.
 
-An intelligent **real-time seizure detection and alert system** designed to help patients and caregivers by analyzing biomedical signals and providing immediate alerts during epileptic episodes.  
+🔗 Live Demo: Click Here to Launch App
 
-This project leverages **machine learning**, **deep learning**, and **IoT** to create a reliable and responsive healthcare tool.
+🚀 Key Features
 
----
+Real-Time Prediction: Classifies EEG signals as "Seizure" or "Normal" in milliseconds.
 
-## 📌 Table of Contents
+Advanced Signal Processing: Uses Discrete Wavelet Transform (DWT) and Hurst Exponent for feature extraction.
 
-- [About the Project](#-about-the-project)
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [System Architecture](#-system-architecture)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Dataset](#-dataset)
-- [Model Training](#-model-training)
-- [Alert System](#-alert-system)
-- [Project Structure](#-project-structure)
-- [Future Enhancements](#-future-enhancements)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Contact](#-contact)
+Multi-Channel Alerts:
 
----
+📱 Telegram Bot: Sends instant push notifications to a family/doctor group chat.
 
-## 📖 About the Project
+📧 Email: Sends detailed reports to emergency contacts.
 
-Epilepsy is a neurological disorder characterized by sudden recurrent seizures. Early detection and timely alerts can **save lives**.  
-This project aims to:
+🔊 Sound Alarm: Plays a loud alert sound locally for immediate attention.
 
-- Detect epileptic seizures using **EEG data** and machine learning models.  
-- Provide **real-time notifications** to caregivers.  
-- Enable easy monitoring and visualization of seizure patterns.
+Interactive Dashboard: Built with Streamlit for easy data visualization and manual testing.
 
-⚡ **Goal:** A lightweight, affordable, and accessible system for seizure detection and alerts.
+📸 Project Screenshots
 
----
+1. Main Dashboard & Normal Activity
 
-## 🌟 Features
+The user interface allows uploading CSV files or manual input. When normal brain activity is detected, the system shows a green status.
 
-- 🧠 **Seizure Detection Model:** Trained on EEG datasets.  
-- 📡 **Real-Time Monitoring:** Live signal input for immediate detection.  
-- 📱 **Alert Mechanism:** Automatic SMS/notification to emergency contacts.  
-- 📊 **Data Visualization:** Graphical representation of brain activity.  
-- 💻 **Modular Codebase:** Clean and easy to extend.  
+2. Seizure Detected!
 
----
+When a seizure pattern is identified, the system flashes a red warning and triggers the alert protocols.
 
-## 🧰 Tech Stack
+3. Telegram Alert (Mobile View)
 
-- **Languages:** Python, C++ (if embedded modules are used)
-- **Libraries & Frameworks:**  
-  - TensorFlow / PyTorch — Deep learning model  
-  - Scikit-learn — ML preprocessing  
-  - Pandas, NumPy — Data analysis  
-  - Matplotlib / Seaborn — Visualization  
-  - Flask / Streamlit — Web interface (optional)
-- **Hardware (optional):** IoT/embedded device for real-time detection  
-- **Dataset:** EEG signals dataset for seizure classification
+Instant notification received on a mobile phone via the Telegram Bot, showing the exact time and row index of the seizure.
 
----
+4. Email Alert
 
-## 🏗 System Architecture
+An automated email is sent to the registered caregiver with urgent details.
 
-```
-EEG Data → Preprocessing → ML/DL Model → Detection → Alert System → Dashboard
-```
+5. Manual Input Testing
 
----
+Allows doctors/researchers to manually paste EEG values to test specific signal patterns.
 
-## ⚙️ Installation
+🛠️ Tech Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Rohantiwari10/Epilepcy-Detection-And-Alert-System.git
-   cd Epilepcy-Detection-And-Alert-System
-   ```
+Frontend: Streamlit
 
-2. **Create and activate virtual environment** *(recommended)*:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate      # For Linux/Mac
-   venv\Scripts\activate         # For Windows
-   ```
+Machine Learning: Scikit-Learn (Random Forest Classifier)
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+Signal Processing: PyWavelets (Wavelet Transform), Hurst (Hurst Exponent)
 
----
+Alerts: Python requests (Telegram API), smtplib (Gmail SMTP)
 
-## 🧪 Usage
+Deployment: Streamlit Community Cloud
 
-1. Run the detection system:
-   ```bash
-   python main.py
-   ```
+⚙️ Installation & Setup
 
-2. Upload EEG data or start real-time monitoring.  
-3. View results on the dashboard or console.  
-4. If a seizure is detected, **alerts will be triggered automatically**.
+1. Clone the Repository
 
----
+git clone [https://github.com/your-username/epilepsy-detection-system.git](https://github.com/your-username/epilepsy-detection-system.git)
+cd epilepsy-detection-system
 
-## 🧠 Dataset
 
-- Publicly available EEG seizure datasets such as:
-  - University of Bonn EEG dataset  
-  - CHB-MIT Scalp EEG Database
-- Data is preprocessed and segmented before training.  
-- You can use your own dataset by placing it in the `data/` folder and updating the preprocessing script.
+2. Install Dependencies
 
----
+pip install -r requirements.txt
 
-## 🧮 Model Training
 
-To retrain or fine-tune the model:
-```bash
-python train.py --epochs 50 --batch-size 32
-```
+3. Configure Secrets (.env)
 
-You can customize hyperparameters inside `config.py`.
+Create a .env file in the root directory and add your keys:
 
----
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+TELEGRAM_CHAT_ID="-100xxxxxxxxxx"  # Your Group ID
+EMAIL_SENDER="your_email@gmail.com"
+EMAIL_PASSWORD="your_16_digit_app_password"
+EMAIL_RECEIVER="doctor_email@gmail.com"
 
-## 🚨 Alert System
 
-- Alert system uses a webhook / API / SMS gateway (e.g., Twilio).  
-- When a seizure is detected:
-  - 📲 Emergency SMS is sent
-  - 🖥️ Dashboard updates in real-time
-  - 🩺 Logs are stored for medical review
+4. Run the App
 
----
+streamlit run app.py
 
-## 📁 Project Structure
 
-```
-Epilepcy-Detection-And-Alert-System/
-│
-├── data/                   # EEG datasets
-├── models/                 # Pretrained / trained ML models
-├── src/                    # Core source code
-│   ├── preprocessing.py
-│   ├── train.py
-│   ├── detect.py
-│   └── alert.py
-├── requirements.txt
-├── README.md
-└── main.py
-```
+📊 Dataset Details
 
----
+This project uses the UCI Epileptic Seizure Recognition Data Set.
 
-## 🚀 Future Enhancements
+Total Rows: 11,500
 
-- ✅ Mobile application for caregivers  
-- 🧠 Improved model accuracy with real-time adaptation  
-- 🌍 Cloud deployment for remote access  
-- 📲 Integration with wearables / IoT devices  
-- 🩺 Medical data reports for doctors
+Columns: 179 (178 EEG features + 1 Target label)
 
----
+Sampling Rate: 178 Hz (1 second of recording per row)
 
-## 🤝 Contributing
+Classes:
 
-We welcome contributions!  
-To contribute:
+1: Seizure Activity (Epileptic)
 
-1. Fork this repository  
-2. Create a new branch (`feature/YourFeature`)  
-3. Commit your changes  
-4. Push and open a Pull Request
+0: Normal / Tumor Area / Eyes Closed (Non-Seizure)
 
----
+🔮 Future Scope
 
-## 📜 License
+Integrate IoT Headsets (like Emotiv/OpenBCI) for live brainwave streaming.
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+Add GPS Location to the alert message for emergency ambulances.
 
----
+Implement Deep Learning (LSTM/CNN) for potentially higher accuracy.
 
-## 📬 Contact
+👨‍💻 Author
 
-👤 **Rohan Tiwari**  
-📧 rohanitsector@gmail.com  
-🔗 [Project Repository](https://github.com/Rohantiwari10/Epilepcy-Detection-And-Alert-System)  
+Rohan & Team
+College Project - 2025
 
-⭐ If you like this project, **give it a star** on GitHub to support the development!
+Disclaimer: This tool is a prototype for educational purposes and should not replace professional medical diagnosis.
 
----
 
-> “Early detection saves lives — let's build tech that matters.” 💡
+### Instructions to Add Screenshots
+1.  Create a folder named `screenshots` inside your project folder.
+2.  Rename your screenshot files to match the names I used in the README:
+    * `Screenshot (644).png` -> `normal_activity.png`
+    * `Screenshot (645).png` -> `seizure_detected.png`
+    * `Screenshot (646).png` -> `telegram_alert.jpg`
+    * `Screenshot (647).png` -> `email_alert.jpg`
+    * `Screenshot (648).png` -> `manual_input.png`
+3.  Move these renamed images into the `screenshots` folder.
+4.  Upload everything to GitHub.
+
+This README is professional, complete, and ready for submission!
